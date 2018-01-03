@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 #include <string.h>
 
-static size_t read_file(FILE* fp, void** output) {
+static size_t read_file(FILE* fp, unsigned char** output) {
     size_t smart_size, count;
     size_t length = 0;
     //make it faster

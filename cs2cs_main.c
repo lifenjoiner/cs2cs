@@ -1,4 +1,6 @@
+#include <stdio.h>
 #include <tchar.h>
+#include <windows.h>
 #include "cs2cs.h"
 #include "file.h"
 

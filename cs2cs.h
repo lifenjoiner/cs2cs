@@ -7,11 +7,13 @@
   Unicode
   https://en.wikipedia.org/wiki/Plane_(Unicode)
   https://en.wikipedia.org/wiki/Unicode_block
+  //
+  '_mbstowcs_l --> _wcstombs_l' are not avaliable even on win 7!
 */
 
-#include <windows.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <windows.h>
 
 void *U16LE_BOM = "\xFF\xFE";
 void *U16BE_BOM = "\xFE\xFF";
@@ -22,8 +24,8 @@ void *U8_BOM = "\xEF\xBB\xBF";
 
 ////////////////////////////////////////////////////////////////////////////////
 //winnls.h
-size_t cs_to_utf16(UINT cp_in, const char *str_in, wchar_t **str_w) {
-    size_t len_w;
+int cs_to_utf16(UINT cp_in, const char *str_in, wchar_t **str_w) {
+    int len_w;
     //
     len_w = MultiByteToWideChar(cp_in, 0, str_in, -1, NULL, 0);
     if (len_w == 0) {return 0;}
@@ -32,9 +34,9 @@ size_t cs_to_utf16(UINT cp_in, const char *str_in, wchar_t **str_w) {
     return len_w - 1;
 }
 
-size_t utf16_to_cs(const wchar_t *str_w, UINT cp_out, char **str_m) {
+int utf16_to_cs(const wchar_t *str_w, UINT cp_out, char **str_m) {
     const wchar_t *str_wn;
-    size_t len_m;
+    int len_m;
     //
     str_wn = (cp_out != 65000 && memcmp(str_w, U16LE_BOM, 2) == 0) ? str_w + 1 : str_w;
     len_m = WideCharToMultiByte(cp_out, 0, str_wn, -1, NULL, 0, NULL, NULL);
@@ -44,12 +46,12 @@ size_t utf16_to_cs(const wchar_t *str_w, UINT cp_out, char **str_m) {
     return len_m - 1;
 }
 
-size_t process_BOM(void **str, size_t len_str, size_t len_null, void *BOM, int len_BOM) {
-    size_t len_new_t;
-    if (len_str <= 0) {return 0;}
+int process_BOM(void **str, int len_str, int len_null, void *BOM, int len_BOM) {
+    int len_new_t;
     len_new_t = len_str + len_null + len_BOM;
     if (len_BOM >= 0) {
         *str = realloc(*str, len_new_t);
+        if (*str == 0) fprintf(stderr, "0x%X\n", errno);
         memmove(*str + len_BOM, *str, len_str + len_null);
         memcpy(*str, BOM, len_BOM);
     }
@@ -61,9 +63,9 @@ size_t process_BOM(void **str, size_t len_str, size_t len_null, void *BOM, int l
 }
 
 /*not utf16*/
-size_t cs2cs(UINT cp_in, void *str_in, UINT cp_out, void **str_out, int BOM_out) {
+int cs2cs(UINT cp_in, void *str_in, UINT cp_out, void **str_out, int BOM_out) {
     wchar_t *str_w;
-    size_t len_r, len_pre = 0;
+    int len_r, len_pre = 0;
     //
     //https://en.wikipedia.org/wiki/Byte_order_mark
     // BOM in
@@ -81,7 +83,7 @@ size_t cs2cs(UINT cp_in, void *str_in, UINT cp_out, void **str_out, int BOM_out)
         }
         else {
             len_r = utf16_to_cs(
-            (wchar_t*)((BOM_out && cp_out == 65000) ? str_in : str_in + len_pre)
+            (wchar_t*)((BOM_out && cp_out == 65000) ? str_in : (char*)str_in + len_pre)
             , cp_out, (char**)str_out);
         }
         break;
@@ -97,9 +99,10 @@ size_t cs2cs(UINT cp_in, void *str_in, UINT cp_out, void **str_out, int BOM_out)
             _swab(str_in + len_pre, *str_out, len_r);
         }
         else {
-            _swab(str_in + len_pre, (void*)str_w, len_r);
+            str_w = str_in;
+            _swab(str_in, (void*)str_w, len_r + len_pre); // overwrite
             len_r = utf16_to_cs(
-            (wchar_t*)((BOM_out && cp_out == 65000) ? str_w : str_w + len_pre)
+            (wchar_t*)((BOM_out && cp_out == 65000) ? str_w : (char*)str_w + len_pre)
             , cp_out, (char**)str_out);
         }
         break;
